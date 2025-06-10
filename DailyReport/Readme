@@ -1,0 +1,9 @@
+This repository contains DATA and scripts to generate a pdf daily report for the OCG-Data platform.
+The report plots:
+- Battery voltage, current, state of charge for each pack
+- Solar pannel power delivery unit voltage, current, temperature and power
+- Anemometer wind measurement
+- Wave height
+- Pitch and Roll of our platform
+- GPS
+- Temperature and humidity sensor from bottom and top column
