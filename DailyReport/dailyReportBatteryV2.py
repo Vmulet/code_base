@@ -1,4 +1,4 @@
-import pandas as pd
+git submodule update --init --recursiveimport pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from datetime import datetime, timedelta
@@ -8,7 +8,16 @@ import requests
 
 
 def find_data(input_path, date=None):
-    """Find parquet files for the given date."""
+    """
+    Finds and returns a list of Parquet file paths for the given date.
+
+    Args:
+        input_path (str): The base directory containing the data files.
+        date (str): The date for which to find files (default is today's date).
+
+    Returns:
+        list: A list of file paths for the specified date.
+    """
     date = date or datetime.datetime.now().strftime('%Y-%m-%d')
     paths = [
         "TYVA2/BATT_STATE/BATT_STATE-{0}.parquet.gzip".format(date),
@@ -33,14 +42,38 @@ def find_data(input_path, date=None):
 
 
 def save_figure(fig, pdf):
-    """Save the figure to the PDF."""
+    """
+    Saves the given figure to a PDF file and closes the figure.
+
+    Args:
+        fig (matplotlib.figure.Figure): The figure to save.
+        pdf (PdfPages): The PDF file to save the figure into.
+
+    Returns:
+        None
+    """
     fig.tight_layout()
     pdf.savefig(fig)
     plt.close(fig)
 
 
 def plot_data(data, fig, index, ylabel, data_column=-1, color='tab:blue', option='', numericYticks=False):
-    """Plot data on the figure."""
+    """
+    Plots a line graph of the specified data column on the given figure.
+
+    Args:
+        data (pd.DataFrame): The data to plot.
+        fig (matplotlib.figure.Figure): The figure to plot on.
+        index (int): The subplot index for the figure.
+        ylabel (str): The label for the y-axis.
+        data_column (int): The index of the data column to plot (default is -1).
+        color (str): The color of the line (default is "tab:blue").
+        option (str): Marker style for the plot (default is "").
+        numericYticks (bool): Whether to convert y-axis ticks to numeric values (default is False).
+
+    Returns:
+        None
+    """
     ycolumn = data[data.columns[data_column]]
     if numericYticks:
         ycolumn = data[data.columns[data_column]].astype(float)
@@ -55,7 +88,17 @@ def plot_data(data, fig, index, ylabel, data_column=-1, color='tab:blue', option
 
 
 def filterAveragePerPeriod(data, period, dataColums=[-1]):
-    """Sort, format and merge values by calculating the average value for a given period."""
+    """
+    Sorts, formats, and merges values by calculating the average value for a given period.
+
+    Args:
+        data (pd.DataFrame): The input data containing a timestamp column ("acquisition_time").
+        period (int): The time period (in seconds) for averaging.
+        dataColums (list): List of column indices to calculate averages for (default is the last column).
+
+    Returns:
+        pd.DataFrame: A new DataFrame with averaged values and formatted timestamps.
+    """
     filtered_timestamp = []
     averaged_data = [[] for col in dataColums]
     formatTimestamp = '%X'
@@ -91,19 +134,43 @@ def filterAveragePerPeriod(data, period, dataColums=[-1]):
 
 
 def new_pdf_page():
-    """Create a new PDF page with a fixed size."""
+    """
+    Creates a new PDF page with a fixed size.
+
+    Returns:
+        matplotlib.figure.Figure: A new figure object with the specified size.
+    """
     return plt.figure(figsize=(12, 15))
 
 
 def add_text_to_fig(text, fig, index, position=111):
-    """Add text to a figure."""
+    """
+    Adds text to a specified figure at a given position.
+
+    Args:
+        text (str): The text to add to the figure.
+        fig (matplotlib.figure.Figure): The figure to which the text will be added.
+        index (int): The font size of the text.
+        position (int): The subplot position (default is 111).
+
+    Returns:
+        None
+    """
     ax = fig.add_subplot(position)
     ax.text(0.5, 0.9, text, size=index, ha="center", wrap=True)
     ax.axis('off')
 
 
 def filter_data(data):
-    """Filter data to include only rows where seconds are divisible by 30."""
+    """
+    Filters data to include only rows where the seconds in the timestamp are divisible by 30.
+
+    Args:
+        data (pd.DataFrame): The input data containing a timestamp column ("acquisition_time").
+
+    Returns:
+        pd.DataFrame: A new DataFrame with filtered rows and formatted timestamps.
+    """
     data['acquisition_time'] = pd.to_datetime(data['acquisition_time'])
     data = data.sort_values(by='acquisition_time')
     filter = (data['acquisition_time'].dt.second % 30 == 0)
@@ -114,6 +181,21 @@ def filter_data(data):
 
 
 def multi_plot(dataArray, fig, index, ylabel, labels, data_column=-1, option=''):
+    """
+    Plots multiple datasets on the same subplot for comparison.
+
+    Args:
+        dataArray (list): A list of DataFrames to plot.
+        fig (matplotlib.figure.Figure): The figure to plot on.
+        index (int): The subplot index for the figure.
+        ylabel (str): The label for the y-axis.
+        labels (list): A list of labels for each dataset.
+        data_column (int): The index of the data column to plot (default is -1).
+        option (str): Marker style for the plot (default is "").
+
+    Returns:
+        None
+    """
     ax = fig.add_subplot(index)
     dataArray = syncData(dataArray)
     color = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple',
@@ -131,6 +213,15 @@ def multi_plot(dataArray, fig, index, ylabel, labels, data_column=-1, option='')
 
 
 def next_file(parquet_files):
+    """
+    Retrieves the next Parquet file from a list of files and reads it into a DataFrame.
+
+    Args:
+        parquet_files (list): A list of Parquet file paths.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the data from the next Parquet file.
+    """
     if not hasattr(next_file, "counter"):
         next_file.counter = 0
     next_file.counter += 1
@@ -138,6 +229,16 @@ def next_file(parquet_files):
 
 
 def calculatePowerBattery(dataCurrent, dataVoltage):
+    """
+    Calculates the average power and energy gain for a battery using current and voltage data.
+
+    Args:
+        dataCurrent (pd.DataFrame): The current data for the battery.
+        dataVoltage (pd.DataFrame): The voltage data for the battery.
+
+    Returns:
+        float: The calculated energy gain in watt-hours.
+    """
     dataSynced = syncData([dataCurrent, dataVoltage])
     dataCurrent = dataSynced[0]
     dataVoltage = dataSynced[1]
@@ -152,6 +253,15 @@ def calculatePowerBattery(dataCurrent, dataVoltage):
 
 
 def syncData(dataArray):
+    """
+    Synchronizes multiple DataFrames by aligning their timestamps and interpolating missing values.
+
+    Args:
+        dataArray (list): A list of DataFrames, each containing a timestamp column ("acquisition_time").
+
+    Returns:
+        list: A list of synchronized DataFrames.
+    """
     syncedArray = []
     common_time_index = pd.concat([dataframe['acquisition_time'] for dataframe in dataArray]).drop_duplicates(
     ).sort_values().reset_index(drop=True)
@@ -164,6 +274,15 @@ def syncData(dataArray):
 
 
 def getSpotterData(report_date):
+    """
+    Fetches wave data from the Spotter API for a specific date.
+
+    Args:
+        report_date (str): The date for which to fetch data (format: "YYYY-MM-DD").
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the wave data.
+    """
     url = "https://api.sofarocean.com/api/devices"
     api_key = "b36c0f94b440b6903e98e028e70987"
     headers = {
@@ -193,7 +312,17 @@ def getSpotterData(report_date):
 
 
 def parquets_to_dailyReport(file_date, parquet_files, pdf_file):
-    """Generate a daily report from parquet files with specific plots for each dataset."""
+    """
+    Generates a daily report from Parquet files with specific plots for each dataset.
+
+    Args:
+        file_date (str): The date of the report (format: "YYYY-MM-DD").
+        parquet_files (list): A list of Parquet file paths.
+        pdf_file (str): The path to the output PDF file.
+
+    Returns:
+        None
+    """
     period = 6  # seconds
     REPORT_TITLE = f"{file_date} Energy Report OCG-DATA Blue Oracle Platform"
     with PdfPages(pdf_file) as pdf:
@@ -316,6 +445,19 @@ def parquets_to_dailyReport(file_date, parquet_files, pdf_file):
 
 
 def plot_gps(data, fig, position, ylabel, file_date):
+    """
+    Plots GPS data on a map with a reference point and a 250m limit circle.
+
+    Args:
+        data (pd.DataFrame): The GPS data containing latitude and longitude columns.
+        fig (matplotlib.figure.Figure): The figure to plot on.
+        position (int): The subplot position for the figure.
+        ylabel (str): The label for the y-axis.
+        file_date (str): The date of the data (format: "YYYY-MM-DD").
+
+    Returns:
+        None
+    """
     Earth_radius = 6371000
     latitude_ref = 42.82931667
     longitude_ref = 3.422366667
@@ -350,7 +492,19 @@ def plot_gps(data, fig, position, ylabel, file_date):
 
 
 def main(report_date, input_path, pdf_name):
+    """
+    Main function to generate a daily report by processing Parquet files and creating plots.
+
+    Args:
+        report_date (str): The date of the report (format: "YYYY-MM-DD").
+        input_path (str): The directory containing the Parquet files.
+        pdf_name (str): The path to the output PDF file.
+
+    Returns:
+        None
+    """
     paths = find_data(input_path, report_date)
     parquets_to_dailyReport(report_date, paths, pdf_name)
+
 
 main('2025-03-09', 'C:/Users/ValentinMulet/Code/DailyReport/tftp_root_decoded/', 'C:/Users/ValentinMulet/Code/DailyReport/output_plot.pdf')

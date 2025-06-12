@@ -3,7 +3,16 @@ import numpy as np
 from format_data import syncData
 
 def save_figure(fig, pdf):
-    """Save the figure to the PDF."""
+    """
+    Saves the given figure to a PDF file and closes the figure.
+
+    Args:
+        fig (matplotlib.figure.Figure): The figure to save.
+        pdf (PdfPages): The PDF file to save the figure into.
+
+    Returns:
+        None
+    """
     fig.tight_layout()
     pdf.savefig(fig)
     plt.close(fig)
@@ -18,7 +27,22 @@ def plot_data(
     option="",
     numericYticks=False,
 ):
-    """Plot data on the figure."""
+    """
+    Plots a line graph of the specified data column on the given figure.
+
+    Args:
+        data (pd.DataFrame): The data to plot.
+        fig (matplotlib.figure.Figure): The figure to plot on.
+        index (int): The subplot index for the figure.
+        ylabel (str): The label for the y-axis.
+        data_column (int): The index of the data column to plot (default is -1).
+        color (str): The color of the line (default is "tab:blue").
+        option (str): Marker style for the plot (default is "").
+        numericYticks (bool): Whether to convert y-axis ticks to numeric values (default is False).
+
+    Returns:
+        None
+    """
     ycolumn = data[data_column]
     if numericYticks:
         ycolumn = data[data.columns[data_column]].astype(float)
@@ -35,21 +59,49 @@ def plot_data(
     #)
 
 def plot_bar_chart(data, fig, index, ylabel, title, data_column=-1, color="tab:blue"):
-    """Plot bar chart with acquisition times as x-axis labels."""
+    """
+    Plots a bar chart of the specified data column with acquisition times as x-axis labels.
+
+    Args:
+        data (pd.DataFrame): The data to plot.
+        fig (matplotlib.figure.Figure): The figure to plot on.
+        index (int): The subplot index for the figure.
+        ylabel (str): The label for the y-axis.
+        title (str): The title of the bar chart.
+        data_column (int): The index of the data column to plot (default is -1).
+        color (str): The color of the bars (default is "tab:blue").
+
+    Returns:
+        None
+    """
     ycolumn = data[data_column].astype(float)
-    acquisition_times = data["acquisition_time"].astype(str) 
+    acquisition_times = data["acquisition_time"].astype(str)
     ax = fig.add_subplot(index)
-    ax.bar(acquisition_times, ycolumn, color=color, edgecolor="black")  
+    ax.bar(acquisition_times, ycolumn, color=color, edgecolor="black")
     ax.set_title(title)
-    ax.set_xlabel("Acquisition Time") 
+    ax.set_xlabel("Acquisition Time")
     ax.set_ylabel(ylabel + "(W)")
     ax.grid(True)
-    ax.tick_params(axis='x', rotation=45)  
-    ax.set_yticks(np.linspace(ycolumn.min(), ycolumn.max(), num=15))  
-    ax.set_ylim(0, ycolumn.max() * 1.05)  
-
+    ax.tick_params(axis='x', rotation=45)
+    ax.set_yticks(np.linspace(ycolumn.min(), ycolumn.max(), num=15))
+    ax.set_ylim(0, ycolumn.max() * 1.05)
 
 def multi_plot(dataArray, fig, index, ylabel, labels, data_column=-1, option=""):
+    """
+    Plots multiple datasets on the same subplot for comparison.
+
+    Args:
+        dataArray (list): A list of DataFrames to plot.
+        fig (matplotlib.figure.Figure): The figure to plot on.
+        index (int): The subplot index for the figure.
+        ylabel (str): The label for the y-axis.
+        labels (list): A list of labels for each dataset.
+        data_column (int): The index of the data column to plot (default is -1).
+        option (str): Marker style for the plot (default is "").
+
+    Returns:
+        None
+    """
     ax = fig.add_subplot(index)
     dataArray = syncData(dataArray)
     color = [

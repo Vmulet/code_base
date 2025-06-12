@@ -1,8 +1,20 @@
 import pandas as pd
 from file_manipulation import find_files_substring_in_filename, get_week_dates
-#TO FORMAT DATA: -----------------------------------------------------------------------------------------------
+
+# TO FORMAT DATA: -----------------------------------------------------------------------------------------------
+
 def filterAveragePerPeriod(data, period, dataColums=[-1]):
-    """Sort, format and merge values by calculating the average value for a given period."""
+    """
+    Sorts, formats, and merges values by calculating the average value for a given period.
+
+    Args:
+        data (pd.DataFrame): The input data containing a timestamp column ("acquisition_time") and data columns.
+        period (int): The time period (in seconds) for averaging. If 0, no averaging is performed.
+        dataColums (list): List of column indices to calculate averages for. Defaults to the last column.
+
+    Returns:
+        pd.DataFrame: A new DataFrame with averaged values and formatted timestamps.
+    """
     if data.empty:
         return data
     filtered_timestamp = []
@@ -39,7 +51,15 @@ def filterAveragePerPeriod(data, period, dataColums=[-1]):
     return pd.DataFrame(newData)
 
 def filter_data(data):
-    """Filter data to include only rows where seconds are divisible by 30."""
+    """
+    Filters data to include only rows where the seconds in the timestamp are divisible by 30.
+
+    Args:
+        data (pd.DataFrame): The input data containing a timestamp column ("acquisition_time").
+
+    Returns:
+        pd.DataFrame: A new DataFrame with filtered rows and formatted timestamps.
+    """
     data["acquisition_time"] = pd.to_datetime(data["acquisition_time"])
     data = data.sort_values(by="acquisition_time")
     filter = data["acquisition_time"].dt.second % 30 == 0
@@ -50,6 +70,16 @@ def filter_data(data):
     return filtered_data
 
 def drop_non_numeric_columns(df):
+    """
+    Drops non-numeric columns from a DataFrame. Columns with boolean values or non-convertible
+    data types are removed.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame.
+
+    Returns:
+        pd.DataFrame: A new DataFrame with only numeric columns.
+    """
     cols_to_drop = []
     for col in df.columns:
         if df[col].dtype == bool:
@@ -62,6 +92,15 @@ def drop_non_numeric_columns(df):
     return df.drop(columns=cols_to_drop)
 
 def syncData(dataArray):
+    """
+    Synchronizes multiple DataFrames by aligning their timestamps and interpolating missing values.
+
+    Args:
+        dataArray (list): A list of DataFrames, each containing a timestamp column ("acquisition_time").
+
+    Returns:
+        list: A list of synchronized DataFrames.
+    """
     syncedArray = []
     common_time_index = (
         pd.concat([dataframe["acquisition_time"] for dataframe in dataArray])
@@ -75,7 +114,18 @@ def syncData(dataArray):
         syncedArray.append(data)
     return syncedArray
 
-def packData(files, data = pd.DataFrame()):
+def packData(files, data=pd.DataFrame()):
+    """
+    Reads and combines data from multiple files (CSV or Parquet) into a single DataFrame.
+    Decodes EPEVER data if applicable.
+
+    Args:
+        files (list): A list of file paths to read.
+        data (pd.DataFrame): An optional initial DataFrame to append data to.
+
+    Returns:
+        pd.DataFrame: A combined and filtered DataFrame.
+    """
     for file in files:
         if 'parquet' in file:
             data_read = pd.read_parquet(file, engine='pyarrow')
@@ -87,6 +137,17 @@ def packData(files, data = pd.DataFrame()):
     return filter_low_count_days(data)
 
 def filter_low_count_days(df, column='acquisition_time', threshold=100):
+    """
+    Filters out days with fewer data points than a specified threshold.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame containing a timestamp column.
+        column (str): The column to use for filtering (default is "acquisition_time").
+        threshold (int): The minimum number of data points required per day.
+
+    Returns:
+        pd.DataFrame: A filtered DataFrame with valid days only.
+    """
     if not df.empty and column in df.columns:
         df[column] = pd.to_datetime(df[column])
         df['date'] = df[column].dt.date
@@ -95,9 +156,20 @@ def filter_low_count_days(df, column='acquisition_time', threshold=100):
         return df[df['date'].isin(valid_dates)].drop(columns=['date'])
     else:
         return df
-        
 
-def extract_period_data(input_path, period, year, month = True):
+def extract_period_data(input_path, period, year, month=True):
+    """
+    Extracts data for a specific period (month or week) from files in a directory.
+
+    Args:
+        input_path (str): The directory containing the data files.
+        period (int): The month or week number to extract data for.
+        year (int): The year of the period.
+        month (bool): Whether the period is a month (True) or a week (False).
+
+    Returns:
+        None: The function processes and packs data but does not return a value.
+    """
     if month:
         if period < 10:
             substring = '{}-0{}'.format(year, period)
@@ -112,6 +184,15 @@ def extract_period_data(input_path, period, year, month = True):
     pass    
 
 def combine_hl_columns(df):
+    """
+    Combines high and low byte columns into a single column for each base name.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame containing "_h" and "_l" columns.
+
+    Returns:
+        pd.DataFrame: A DataFrame with combined columns and scaled values.
+    """
     bases = set()
     for col in df.columns:
         if col.endswith(("_l", "_h")):
@@ -132,6 +213,16 @@ def combine_hl_columns(df):
     return df
 
 def combine_hl_float_values(df, shift_factor=16):
+    """
+    Combines high and low float values into a single column for each base name.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame containing "_h" and "_l" columns.
+        shift_factor (int): The factor to shift the high value (default is 16).
+
+    Returns:
+        pd.DataFrame: A DataFrame with combined float values.
+    """
     bases = set()
     for col in df.columns:
         if col.endswith(("_l", "_h")):
@@ -150,6 +241,16 @@ def combine_hl_float_values(df, shift_factor=16):
     return df
 
 def decodeEPEVER(EPEVER_df):
+    """
+    Decodes and processes EPEVER data by converting hexadecimal values, dropping invalid rows,
+    combining high/low columns, and scaling specific columns.
+
+    Args:
+        EPEVER_df (pd.DataFrame): The input DataFrame containing EPEVER data.
+
+    Returns:
+        pd.DataFrame: A processed and decoded DataFrame.
+    """
     # Data Ratio
     for col in EPEVER_df.columns:
         if col != 'record_time' and EPEVER_df[col].dtype == 'object':  # Ensures column contains strings
