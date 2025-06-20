@@ -30,8 +30,8 @@ def generate_daily_report(**context):
 # Task 2 send email or push to share point
 def email_report(**context):
     sender_email = "airflow@ocergy.com"
-    receiver_emails = "vmulet@ocergy.com"#, flebrun@ocergy.com, n.roddier@tachyssema.fr, ntom@ocergy.com, ccermelli@ocergy.com, droddier@ocergy.com"
-    cc_emails = ""#"mkumar@ocergy.com"
+    receiver_emails = "flebrun@ocergy.com, n.roddier@tachyssema.fr, ntom@ocergy.com, ccermelli@ocergy.com, droddier@ocergy.com, mkumar@ocergy.com, vmulet@ocergy.com"
+    cc_emails = ""
     smtp_server = "192.168.1.122"
     port = 587
 
@@ -49,7 +49,7 @@ def email_report(**context):
     message.attach(part)
 
     pdf_file_path = context["ti"].xcom_pull(
-        task_ids="generate_report", key="file_path"
+        task_ids="generate_daily_report", key="file_path"
     )
 
     # Open PDF file in binary mode and attach it to the email

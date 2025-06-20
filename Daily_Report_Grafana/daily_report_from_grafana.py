@@ -56,4 +56,4 @@ def main(pdf_name, theme = "light"):
         convert_png_to_pdf(image_dashboard, pdf_name)
         os.remove(image_dashboard)
 
-main('2025-05-30_Daily_Report_OCG_DATA.pdf')
+main('2025-06-14_Daily_Report_OCG_DATA.pdf')

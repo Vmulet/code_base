@@ -6,6 +6,7 @@ import os
 # Grafana details
 GRAFANA_URL = "https://ocg-graf.dyndns.org:44103/"
 API_KEY = ""
+DASHBOARD_NAME_FOR_REPORT = "Daily Report"
 
 def get_dashboards():
     """Fetch the list of dashboards from Grafana"""
@@ -46,10 +47,17 @@ def convert_png_to_pdf(png_path, pdf_path):
 
 def main(pdf_name, theme = "light"):
     dashboards = get_dashboards()
+    dashboard_uid = None
     if dashboards:
-        dashboard_uid = dashboards[0]["uid"] 
-        dashboard_uid = "bejdt1c1gwq2ob/daily-report-dev"
-        image_dashboard = pdf_name.replace(".pdf", ".png")
-        get_dashboard_image(dashboard_uid, image_dashboard, theme)
-        convert_png_to_pdf(image_dashboard, pdf_name)
-        os.remove(image_dashboard)
+        for dashboard in dashboards:
+            if DASHBOARD_NAME_FOR_REPORT.lower() in dashboard["title"].lower():
+                dashboard_uid = dashboard["uid"]
+                break
+        if dashboard_uid is None:
+            print(f"No dashboard found with {DASHBOARD_NAME_FOR_REPORT} in the title.")
+            return
+        else:
+            image_dashboard = pdf_name.replace(".pdf", ".png")
+            get_dashboard_image(dashboard_uid, image_dashboard, theme)
+            convert_png_to_pdf(image_dashboard, pdf_name)
+            os.remove(image_dashboard)

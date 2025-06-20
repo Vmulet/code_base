@@ -1,4 +1,4 @@
-git submodule update --init --recursiveimport pandas as pd
+import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from datetime import datetime, timedelta
@@ -20,22 +20,22 @@ def find_data(input_path, date=None):
     """
     date = date or datetime.datetime.now().strftime('%Y-%m-%d')
     paths = [
-        "TYVA2/BATT_STATE/BATT_STATE-{0}.parquet.gzip".format(date),
-        "TYVA2/CURRENT_BAT/CURRENT_BAT-{0}.parquet.gzip".format(date),
-        "TYVA2/VOLT_BAT/VOLT_BAT-{0}.parquet.gzip".format(date),
-        "TYVA3/BATT_STATE/BATT_STATE-{0}.parquet.gzip".format(date),
-        "TYVA3/CURRENT_BAT/CURRENT_BAT-{0}.parquet.gzip".format(date),
-        "TYVA3/VOLT_BAT/VOLT_BAT-{0}.parquet.gzip".format(date),
-        "ANEMOMETER/IIMWV/IIMWV-{0}.parquet.gzip".format(date),
-        #"EPEVER1/EPEVER1-{0}.parquet.gzip".format(date),
-        #"EPEVER2/EPEVER2-{0}.parquet.gzip".format(date),
-        #"EPEVER3/EPEVER3-{0}.parquet.gzip".format(date),
+        #"TYVA2/BATT_STATE/BATT_STATE-{0}.parquet.gzip".format(date),
+        #"TYVA2/CURRENT_BAT/CURRENT_BAT-{0}.parquet.gzip".format(date),
+        #"TYVA2/VOLT_BAT/VOLT_BAT-{0}.parquet.gzip".format(date),
+        #"TYVA3/BATT_STATE/BATT_STATE-{0}.parquet.gzip".format(date),
+        #"TYVA3/CURRENT_BAT/CURRENT_BAT-{0}.parquet.gzip".format(date),
+        #"TYVA3/VOLT_BAT/VOLT_BAT-{0}.parquet.gzip".format(date),
+        #"ANEMOMETER/IIMWV/IIMWV-{0}.parquet.gzip".format(date),
+        "EPEVER1/EPEVER1-{0}.parquet.gzip".format(date),
+        "EPEVER2/EPEVER2-{0}.parquet.gzip".format(date),
+        "EPEVER3/EPEVER3-{0}.parquet.gzip".format(date)
         #"TEMP_HUM_B/TEMP_HUM_B-{0}.parquet.gzip".format(date),
         #"TEMP_HUM_T/TEMP_HUM_T-{0}.parquet.gzip".format(date),
         #"GPS2/GNGGA/GNGGA-{0}.parquet.gzip".format(date),
         #"GPS3/GNGGA/GNGGA-{0}.parquet.gzip".format(date),
-        "6DOF/PHTRO/PHTRO-{0}.parquet.gzip".format(date),
-        "ACCELERO/ACCELERO-{0}.parquet.gzip".format(date)
+        #"6DOF/PHTRO/PHTRO-{0}.parquet.gzip".format(date),
+        #"ACCELERO/ACCELERO-{0}.parquet.gzip".format(date)
         # "/WIND_CTRL1/WIND_CTRL1-{0}.parquet.gzip".format(date),
     ]
     return [os.path.join(input_path, path) for path in paths]
@@ -131,6 +131,60 @@ def filterAveragePerPeriod(data, period, dataColums=[-1]):
     for index, average in enumerate(averaged_data):
         newData[data.columns[dataColums[index]]] = average
     return pd.DataFrame(newData)
+
+
+def filter_average_per_period2(data, period):
+    """
+    Computes average values over a specified time period.
+
+    Args:
+        data (pd.DataFrame): Input DataFrame with 'acquisition_time' as datetime column.
+        period (int): Time period in seconds for averaging.
+
+    Returns:
+        pd.DataFrame: Averaged numeric data with formatted timestamps.
+    """
+    data = data.copy()
+    data['acquisition_time'] = pd.to_datetime(data['acquisition_time'])
+    data = data.sort_values(by='acquisition_time')
+
+    # Select only numeric columns
+    numeric_columns = data.select_dtypes(include='number').columns.tolist()
+
+    # Format timestamp
+    timestamp_format = '%X.%f' if period < 1 else '%X'
+
+    timestamps = []
+    averages = [[] for _ in numeric_columns]
+    accumulators = [0.0] * len(numeric_columns)
+    count = 0
+    current_time = data['acquisition_time'].iloc[0]
+
+    for i, timestamp in enumerate(data['acquisition_time']):
+        count += 1
+        row = data.iloc[i]
+        for j, col_name in enumerate(numeric_columns):
+            accumulators[j] += float(row[col_name])
+
+        if (timestamp - current_time).total_seconds() >= period:
+            timestamps.append(current_time.strftime(timestamp_format))
+            for j, total in enumerate(accumulators):
+                averages[j].append(total / count)
+            current_time = timestamp
+            accumulators = [0.0] * len(numeric_columns)
+            count = 0
+
+    # Add remaining data    
+    timestamps.append(current_time.strftime(timestamp_format))
+    for j, total in enumerate(accumulators):
+        averages[j].append(total / count if count else None)
+
+    # Construct output DataFrame
+    result = {'acquisition_time': timestamps}
+    for j, col_name in enumerate(numeric_columns):
+        result[col_name] = averages[j]
+
+    return pd.DataFrame(result)
 
 
 def new_pdf_page():
@@ -506,5 +560,72 @@ def main(report_date, input_path, pdf_name):
     paths = find_data(input_path, report_date)
     parquets_to_dailyReport(report_date, paths, pdf_name)
 
+def average_by_minute(df):
+    """
+    Averages all numeric columns by minute based on 'acquisition_time' timestamp.
+    Non-numeric columns are ignored. Timestamps are returned as datetime objects.
 
-main('2025-03-09', 'C:/Users/ValentinMulet/Code/DailyReport/tftp_root_decoded/', 'C:/Users/ValentinMulet/Code/DailyReport/output_plot.pdf')
+    Args:
+        df (pd.DataFrame): Input DataFrame with 'acquisition_time' and various data columns.
+
+    Returns:
+        pd.DataFrame: Minute-averaged numeric data with datetime timestamps.
+    """
+    df = df.copy()
+    df['acquisition_time'] = pd.to_datetime(df['acquisition_time'])
+    df.set_index('acquisition_time', inplace=True)
+
+    # Keep only numeric columns
+    numeric_df = df.select_dtypes(include='number')
+
+    # Resample and average
+    result = numeric_df.resample('T').mean().reset_index()
+
+    return result
+
+#main('2025-03-09', 'C:/Users/ValentinMulet/Code/DailyReport/tftp_root_decoded/', 'C:/Users/ValentinMulet/Code/DailyReport/output_plot.pdf')
+
+paths = find_data('C:/Users/ValentinMulet/Work/Data_tftp_root_15min/', "2025-05-15")
+dataPack1 = pd.read_parquet(paths[0], engine='pyarrow')
+dataPack2 = next_file(paths)
+dataPack3 = next_file(paths)
+
+# dataPack1averaged = filterAveragePerPeriod(
+#     dataPack1, 60, [5, 6, 7, 15, 17])
+# dataPack2averaged = filterAveragePerPeriod(
+#     dataPack2, 60, [5, 6, 7, 15, 17])
+# dataPack3averaged = filterAveragePerPeriod(
+#     dataPack3, 60, [5, 6, 7, 15, 17])
+
+dataPack1averaged2 = filter_average_per_period2(
+    dataPack1, 60)
+dataPack2averaged2 = filter_average_per_period2(
+    dataPack2, 60)
+dataPack3averaged2 = filter_average_per_period2(
+    dataPack3, 60)
+
+# dataPack1averaged3 = average_by_minute(dataPack1)
+# dataPack2averaged3 = average_by_minute(dataPack2)
+# dataPack3averaged3 = average_by_minute(dataPack3)
+
+# with PdfPages('C:/Users/ValentinMulet/Work/saveoutput_plotold.pdf') as pdf:
+
+#         fig = new_pdf_page()
+#         position = 111
+#         multi_plot([dataPack1averaged, dataPack2averaged, dataPack3averaged], fig, position,
+#                    "Solar panel input voltage(v)", ["Pack 1 10-min avg", "Pack 2 10-min avg", "Pack 3 10-min avg"], -5)
+#         save_figure(fig, pdf)
+
+with PdfPages('C:/Users/ValentinMulet/Work/saveoutput_plotold2.pdf') as pdf:
+        fig = new_pdf_page()
+        position = 111
+        multi_plot([dataPack1averaged2, dataPack2averaged2, dataPack3averaged2], fig, position,
+                   "Solar panel input voltage(v)", ["Pack 1 10-min avg", "Pack 2 10-min avg", "Pack 3 10-min avg"], -5)
+        save_figure(fig, pdf)
+
+# with PdfPages('C:/Users/ValentinMulet/Work/saveoutput_plotold3.pdf') as pdf:
+#         fig = new_pdf_page()
+#         position = 111
+#         multi_plot([dataPack1averaged3, dataPack2averaged3, dataPack3averaged3], fig, position,
+#                    "Solar panel input voltage(v)", ["Pack 1 10-min avg", "Pack 2 10-min avg", "Pack 3 10-min avg"], -5)
+#         save_figure(fig, pdf)
