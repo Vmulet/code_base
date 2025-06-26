@@ -92,7 +92,7 @@ def createTableDaily(path, tableName):
             df_transformed['heading'] = df.apply(lambda row: quaternion_to_yaw(row['q0'], row['q1'], row['q2'], row['q3']), axis=1)
             df = df_transformed
         engine = create_engine(
-            f"postgresql://userdata:vi7FA:&5z7@192.168.1.125:5432/{DAILY_DATABASE_NAME}"
+            f"postgresql://grafana:grafana@localhost:5432/{DAILY_DATABASE_NAME}"
         )
         df.to_sql(tableName, engine, if_exists="replace", index=False)
 
@@ -106,14 +106,18 @@ def delete_old_data(engine, table_name, time_column="acquisition_time"):
 
     with engine.begin() as conn:
         for timestamp in old_rows[time_column]:
-            delete_query = text(f'DELETE FROM "{table_name}" WHERE "{time_column}" = :timestamp')
+            delete_query = text(f'''
+                DELETE FROM "{table_name}" 
+                WHERE "{time_column}"::timestamp = :timestamp
+                ''')
             conn.execute(delete_query, {"timestamp": timestamp})
 
-def update_yearly_data(path, table_name, time_column="acquisition_time", delete_old_data = True):
+def update_yearly_data(path, table_name, time_column="acquisition_time", delete_older_data = True):
     engine = create_engine(
         f"postgresql://userdata:vi7FA:&5z7@192.168.1.125:5432/{YEARLY_DATABASE_NAME}"
     )
-    delete_old_data(engine, table_name)
+    if delete_older_data:
+        delete_old_data(engine, table_name)
     if os.path.exists(path):
         df = pd.read_parquet(path)
         df = filter_average_per_period(df, 60)
@@ -124,10 +128,11 @@ def backfill_yearly_data(input_path):
     end_date = datetime.today().date()
     date_list = [(start_date + timedelta(days=i)).strftime('%Y-%m-%d') for i in range((end_date - start_date).days + 1)]
     for date in date_list:
+        print(f"Backfilling: {date}")
         paths = find_files_substring_in_filename(input_path, date)
         for path in paths:
             table_name = path.split(input_path)[-1].split("-")[0]
-            update_yearly_data(path, table_name, delete_old_data = False)
+            update_yearly_data(path, table_name, delete_older_data = False)
 
 def main(dateData, input_path, backfill = False):
     if backfill:
